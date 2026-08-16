@@ -1,5 +1,6 @@
 import pytest
 from app import app
+import json
 
 @pytest.fixture
 def client():
@@ -38,9 +39,22 @@ def test_create_task_without_title(client):
 def test_home_page(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert b"CI/CD Pipeline Demo" in response.data
+    assert b"CI/CD Pipeline Dashboard" in response.data
 
 def test_record_deployment(client):
-    response = client.post("/deploy")
+    response = client.post(
+        "/deploy",
+        json={
+            "deployment_engineer": "Test Engineer",
+            "deployment_name": "Test Deployment",
+            "commit_message": "test: Test commit",
+            "important_notice": "Test notice",
+            "message_of_the_day": "Test MOTD"
+        }
+    )
     assert response.status_code == 200
-    assert "deployment recorded" in response.json["status"]
+    assert response.json["status"] == "deployment recorded"
+    
+def test_record_deployment_no_json(client):
+    response = client.post("/deploy", data={})
+    assert response.status_code == 415
