@@ -24,9 +24,6 @@ user_inputs = {
     "message_of_the_day": "Keep coding and deploying! 🚀"
 }
 
-# Store ALL GitHub Actions runs
-github_runs = []
-
 def get_commit_info():
     """Get the latest commit message, count, and SHA"""
     try:
@@ -92,7 +89,7 @@ def home():
     deploy_count = get_deployment_count()
     
     # Use user-provided values or defaults
-    deployment_name = user_inputs.get('deployment_name') or "Deployment #{}".format(deploy_count)
+    deployment_name = user_inputs.get('deployment_name') or f"Deployment #{deploy_count}"
     display_commit_message = user_inputs.get('commit_message') or commit_message
     deployment_engineer = user_inputs.get('deployment_engineer', 'Zeeshan DevOps Engineer')
     important_notice = user_inputs.get('important_notice', 'Use commit message format deploy: Your Special Name')
@@ -721,7 +718,8 @@ def record_custom_deployment():
         "name": deploy_name,
         "engineer": deploy_engineer,
         "notice": notice,
-        "motd": motd    }
+        "motd": motd
+    }
     
     deployment_history.append(deployment_record)
     
@@ -737,7 +735,11 @@ def record_custom_deployment():
 @app.route('/deploy', methods=['POST'])
 def record_deployment():
     """Record a deployment from GitHub Actions"""
-    data = request.get_json() or {}
+    # Check if JSON is provided
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = {}
     
     # Get values from GitHub Actions or use defaults
     deploy_engineer = data.get('deployment_engineer', os.environ.get('DEPLOYMENT_ENGINEER', 'Zeeshan DevOps Engineer'))
