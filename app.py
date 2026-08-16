@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, redirect
 import datetime
 import subprocess
 import os
@@ -6,43 +6,33 @@ import json
 
 app = Flask(__name__)
 
-# Store tasks in memory
+# File path in the repository
+HISTORY_FILE = 'deploy_history.txt'
+COUNT_FILE = 'deploy_count.txt'
+
 tasks = [
     {"id": 1, "title": "Learn CI/CD", "completed": False},
     {"id": 2, "title": "Implement GitHub Actions", "completed": False},
 ]
 
-def get_commit_info():
-    """Get the latest commit message, count, and SHA"""
-    try:
-        count = subprocess.check_output(['git', 'rev-list', '--count', 'HEAD']).decode().strip()
-        message = subprocess.check_output(['git', 'log', '-1', '--pretty=%B']).decode().strip()
-        sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
-        return count, message, sha
-    except:
-        return "0", "No commits yet", "N/A"
-
 def get_deployment_count():
-    """Get deployment count from file"""
     try:
-        with open('/tmp/deploy_count.txt', 'r') as f:
+        with open(COUNT_FILE, 'r') as f:
             return int(f.read().strip())
     except:
         return 0
 
 def increment_deployment_count():
-    """Increment deployment counter"""
     count = get_deployment_count()
     new_count = count + 1
-    with open('/tmp/deploy_count.txt', 'w') as f:
+    with open(COUNT_FILE, 'w') as f:
         f.write(str(new_count))
     return new_count
 
 def get_deployment_history():
-    """Read deployment history from file"""
     history = []
     try:
-        with open('/tmp/deploy_history.txt', 'r') as f:
+        with open(HISTORY_FILE, 'r') as f:
             for line in f:
                 parts = line.strip().split('|')
                 if len(parts) >= 8:
@@ -61,42 +51,34 @@ def get_deployment_history():
         pass
     return history
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def home():
-    """Dashboard with two columns - all data from GitHub Actions"""
-    
-    commit_count, commit_message, commit_sha = get_commit_info()
     deploy_count = get_deployment_count()
     history = get_deployment_history()
-    
-    # Get latest deployment (Column 1)
     latest = history[-1] if history else None
     
-    # Current date/time with seconds (live)
     now = datetime.datetime.now()
     current_date = now.strftime('%A, %B %d, %Y')
     current_time = now.strftime('%I:%M:%S %p')
-    full_datetime = f"{current_date} at {current_time}"
     
-    # Default values if no deployment yet
     if latest:
         deployment_name = latest.get('deployment_name', f"Deployment #{deploy_count}")
         engineer = latest.get('engineer', 'Zeeshan DevOps Engineer')
-        commit_msg = latest.get('commit_message', commit_message)
+        commit_msg = latest.get('commit_message', 'No commit message')
         notice = latest.get('important_notice', 'Use deploy: Your Special Name')
         motd = latest.get('motd', 'Keep coding and deploying! 🚀')
         run_number = latest.get('run_number', str(deploy_count))
         actor = latest.get('actor', 'zeeshandevopsengineer')
-        sha = latest.get('sha', commit_sha)
+        sha = latest.get('sha', 'N/A')
     else:
         deployment_name = f"Deployment #{deploy_count}"
         engineer = 'Zeeshan DevOps Engineer'
-        commit_msg = commit_message
+        commit_msg = 'No deployments yet'
         notice = 'Use deploy: Your Special Name'
         motd = 'Keep coding and deploying! 🚀'
         run_number = str(deploy_count)
         actor = 'zeeshandevopsengineer'
-        sha = commit_sha
+        sha = 'N/A'
     
     html = f"""
     <!DOCTYPE html>
@@ -126,8 +108,6 @@ def home():
                 from {{ opacity: 0; transform: translateY(40px); }}
                 to {{ opacity: 1; transform: translateY(0); }}
             }}
-            
-            /* HEADER */
             .header {{
                 display: flex;
                 justify-content: space-between;
@@ -174,15 +154,12 @@ def home():
                 font-size: 14px;
                 font-weight: 600;
             }}
-            
-            /* TWO COLUMN LAYOUT */
             .dashboard-grid {{
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 30px;
                 margin: 20px 0;
             }}
-            
             .column {{
                 background: #f7fafc;
                 border-radius: 15px;
@@ -195,19 +172,12 @@ def home():
                 border-bottom: 2px solid #667eea;
                 padding-bottom: 10px;
                 margin-bottom: 20px;
-                display: flex;
-                align-items: center;
-                gap: 10px;
             }}
-            
-            /* COLUMN 1 - CURRENT DEPLOYMENT */
             .deployment-detail {{
                 padding: 12px 0;
                 border-bottom: 1px solid #e2e8f0;
             }}
-            .deployment-detail:last-child {{
-                border-bottom: none;
-            }}
+            .deployment-detail:last-child {{ border-bottom: none; }}
             .detail-label {{
                 font-size: 13px;
                 color: #718096;
@@ -245,20 +215,13 @@ def home():
                 border-radius: 10px;
                 display: inline-block;
             }}
-            
-            /* COLUMN 2 - WORKFLOW HISTORY */
             .workflow-item {{
                 padding: 12px 15px;
                 border-bottom: 1px solid #e2e8f0;
-                transition: background 0.2s;
                 border-radius: 8px;
             }}
-            .workflow-item:hover {{
-                background: #edf2f7;
-            }}
-            .workflow-item:last-child {{
-                border-bottom: none;
-            }}
+            .workflow-item:hover {{ background: #edf2f7; }}
+            .workflow-item:last-child {{ border-bottom: none; }}
             .workflow-title {{
                 font-weight: 600;
                 color: #2d3748;
@@ -305,11 +268,6 @@ def home():
                 font-size: 12px;
                 font-weight: 600;
             }}
-            .workflow-duration.failed {{
-                background: #fed7d7;
-                color: #742a2a;
-            }}
-            
             .footer {{
                 text-align: center;
                 color: #718096;
@@ -318,20 +276,14 @@ def home():
                 border-top: 2px solid #e2e8f0;
                 margin-top: 30px;
             }}
-            
             @media (max-width: 900px) {{
-                .dashboard-grid {{
-                    grid-template-columns: 1fr;
-                }}
-                .container {{
-                    padding: 20px;
-                }}
+                .dashboard-grid {{ grid-template-columns: 1fr; }}
+                .container {{ padding: 20px; }}
             }}
         </style>
     </head>
     <body>
         <div class="container">
-            <!-- HEADER -->
             <div class="header">
                 <h1>🚀 CI/CD Pipeline Dashboard</h1>
                 <div class="live-indicator">
@@ -341,63 +293,49 @@ def home():
                 </div>
             </div>
             
-            <!-- DASHBOARD GRID -->
             <div class="dashboard-grid">
-                
-                <!-- COLUMN 1: CURRENT DEPLOYMENT -->
                 <div class="column">
                     <h2>📋 Current Deployment</h2>
-                    
                     <div class="deployment-detail">
                         <div class="detail-label">🎯 Deployment Name</div>
                         <div class="detail-value">{deployment_name}</div>
                     </div>
-                    
                     <div class="deployment-detail">
                         <div class="detail-label">📝 Commit Message</div>
                         <div class="detail-value">{commit_msg}</div>
                     </div>
-                    
                     <div class="deployment-detail">
                         <div class="detail-label">🔄 Run Number</div>
                         <div class="detail-value">#{run_number}</div>
                     </div>
-                    
                     <div class="deployment-detail">
                         <div class="detail-label">📢 Important Notice</div>
                         <div class="detail-value notice">{notice}</div>
                     </div>
-                    
                     <div class="deployment-detail">
                         <div class="detail-label">💡 Message of the Day</div>
                         <div class="detail-value motd">{motd}</div>
                     </div>
-                    
                     <div class="deployment-detail">
                         <div class="detail-label">📅 Deployed Time</div>
                         <div class="detail-value time">🕐 {current_time}</div>
                         <div style="font-size: 14px; color: #718096; margin-top: 4px;">{current_date}</div>
                     </div>
-                    
                     <div class="deployment-detail">
                         <div class="detail-label">👤 Triggered By</div>
                         <div class="detail-value" style="font-size: 16px;">{actor}</div>
                     </div>
-                    
                     <div class="deployment-detail">
                         <div class="detail-label">🔑 Commit SHA</div>
                         <div class="detail-value" style="font-size: 14px; font-family: monospace;">{sha}</div>
                     </div>
                 </div>
                 
-                <!-- COLUMN 2: GITHUB ACTIONS WORKFLOW HISTORY -->
                 <div class="column">
                     <h2>🔄 GitHub Actions Workflow History</h2>
     """
     
-    # Display all workflow runs from history
     if history:
-        # Show in reverse order (newest first)
         for item in reversed(history[-15:]):
             run_num = item.get('run_number', 'N/A')
             name = item.get('deployment_name', 'Unknown')
@@ -405,16 +343,11 @@ def home():
             sha = item.get('sha', '')[:7]
             timestamp = item.get('timestamp', '')
             
-            # Calculate time ago
             time_ago = "N/A"
-            duration = "23s"
-            status_class = ""
-            
-            try:
-                if timestamp:
+            if timestamp:
+                try:
                     dt = datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
-                    now_dt = datetime.datetime.now()
-                    diff = now_dt - dt
+                    diff = datetime.datetime.now() - dt
                     minutes = int(diff.total_seconds() / 60)
                     if minutes < 1:
                         time_ago = "just now"
@@ -423,8 +356,8 @@ def home():
                     else:
                         hours = int(minutes / 60)
                         time_ago = f"{hours} hours ago"
-            except:
-                time_ago = "N/A"
+                except:
+                    time_ago = "N/A"
             
             html += f"""
                     <div class="workflow-item">
@@ -439,7 +372,7 @@ def home():
                             </span>
                             <span>
                                 <span class="workflow-time">main · {time_ago}</span>
-                                <span class="workflow-duration">23s</span>
+                                <span class="workflow-duration">24s</span>
                             </span>
                         </div>
                     </div>
@@ -456,17 +389,10 @@ def home():
                 </div>
             </div>
             
-            <!-- FOOTER -->
             <div class="footer">
-                <p>
-                    <strong>💡 Tip:</strong> Fill the 5 fields in GitHub Actions "Run workflow" form!
-                </p>
-                <p style="margin-top: 10px; font-size: 12px;">
-                    🔄 This page displays data from GitHub Actions deployments
-                </p>
-                <p style="margin-top: 5px; font-size: 12px; color: #a0aec0;">
-                    Made with ❤️ by {engineer}
-                </p>
+                <p><strong>💡 Tip:</strong> Fill the 5 fields in GitHub Actions "Run workflow" form!</p>
+                <p style="margin-top: 10px; font-size: 12px;">🔄 This page displays data from GitHub Actions deployments</p>
+                <p style="margin-top: 5px; font-size: 12px; color: #a0aec0;">Made with ❤️ by {engineer}</p>
             </div>
         </div>
     </body>
@@ -476,73 +402,36 @@ def home():
 
 @app.route('/deploy', methods=['POST'])
 def record_deployment():
-    """Record a deployment from GitHub Actions with all 5 fields"""
-    
     if request.is_json:
         data = request.get_json()
     else:
         data = {}
     
-    # Get all 5 fields from GitHub Actions
     deploy_engineer = data.get('deployment_engineer', 'Zeeshan DevOps Engineer')
     deploy_name = data.get('deployment_name', 'Auto Deployment')
     commit_msg = data.get('commit_message', 'deploy: Auto Deployment')
     notice = data.get('important_notice', 'Use deploy: Your Special Name')
     motd = data.get('message_of_the_day', 'Keep coding and deploying! 🚀')
+    run_number = data.get('run_number', '1')
+    actor = data.get('actor', 'Local')
+    sha = data.get('sha', 'N/A')
     
-    # Get GitHub Actions metadata
-    run_number = data.get('run_number', os.environ.get('GITHUB_RUN_NUMBER', '1'))
-    actor = data.get('actor', os.environ.get('GITHUB_ACTOR', 'Local'))
-    sha = data.get('sha', os.environ.get('GITHUB_SHA', ''))[:7]
-    
-    # Increment deployment count
     current_count = increment_deployment_count()
     now = datetime.datetime.now()
     timestamp = now.strftime('%Y-%m-%d %H:%M:%S')
     
-    # Save all data to history file
-    with open('/tmp/deploy_history.txt', 'a') as f:
+    with open(HISTORY_FILE, 'a') as f:
         f.write(f"{current_count}|{deploy_name}|{deploy_engineer}|{commit_msg}|{notice}|{motd}|{actor}|{sha}|{timestamp}\n")
     
-    return jsonify({
-        "status": "deployment recorded",
-        "deployment": {
-            "run_number": current_count,
-            "deployment_name": deploy_name,
-            "engineer": deploy_engineer,
-            "commit_message": commit_msg,
-            "important_notice": notice,
-            "message_of_the_day": motd,
-            "actor": actor,
-            "sha": sha,
-            "timestamp": timestamp
-        }
-    })
+    return jsonify({"status": "deployment recorded"})
 
 @app.route('/health')
 def health():
-    return jsonify({"status": "healthy", "timestamp": datetime.datetime.now().isoformat()})
+    return jsonify({"status": "healthy"})
 
 @app.route('/tasks', methods=['GET'])
 def get_tasks():
     return jsonify(tasks)
-
-@app.route('/tasks', methods=['POST'])
-def create_task():
-    data = request.get_json()
-    if not data or 'title' not in data:
-        return jsonify({"error": "title is required"}), 400
-    new_task = {"id": len(tasks) + 1, "title": data['title'], "completed": False}
-    tasks.append(new_task)
-    return jsonify(new_task), 201
-
-@app.route('/reset', methods=['POST'])
-def reset_deployments():
-    with open('/tmp/deploy_count.txt', 'w') as f:
-        f.write('0')
-    with open('/tmp/deploy_history.txt', 'w') as f:
-        f.write('')
-    return jsonify({"status": "reset successful"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
