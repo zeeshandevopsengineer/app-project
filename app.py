@@ -44,76 +44,347 @@ def increment_deployment_count():
 
 @app.route('/')
 def home():
-    """Home page showing deployment info"""
+    """Home page showing deployment info with beautiful UI"""
     commit_count, commit_message, commit_sha = get_commit_info()
     
-    # Get deployment count (persistent across restarts)
+    # Get deployment count
     deploy_count = get_deployment_count()
     
-    # Check if this is a special named deployment
-    named_deployment = os.environ.get('DEPLOYMENT_NAME', '')
-    if named_deployment:
-        deployment_name = named_deployment
+    # Get deployment name from commit message
+    if "deploy:" in commit_message.lower():
+        deployment_name = commit_message.split("deploy:")[1].strip().split("\n")[0]
     else:
-        # Extract custom name from commit message (format: "deploy: myname")
-        if "deploy:" in commit_message.lower():
-            deployment_name = commit_message.split("deploy:")[1].strip().split("\n")[0]
-        else:
-            deployment_name = f"Deployment #{deploy_count}"
+        deployment_name = f"Deployment #{deploy_count}"
+    
+    # Get the actual deployment number from the commit count
+    actual_deploy_num = deploy_count
     
     html = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>CI/CD Demo App</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>CI/CD Pipeline Demo - {deployment_name}</title>
         <style>
-            body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }}
-            .container {{ max-width: 900px; margin: auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }}
-            .header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #667eea; padding-bottom: 20px; margin-bottom: 30px; }}
-            h1 {{ margin: 0; color: #2d3748; }}
-            .badge-group {{ display: flex; gap: 15px; flex-wrap: wrap; }}
-            .deploy-badge {{ background: linear-gradient(135deg, #48bb78, #38a169); color: white; padding: 12px 25px; border-radius: 50px; font-weight: bold; font-size: 18px; box-shadow: 0 4px 15px rgba(72, 187, 120, 0.4); }}
-            .commit-badge {{ background: linear-gradient(135deg, #4299e1, #3182ce); color: white; padding: 12px 25px; border-radius: 50px; font-weight: bold; font-size: 18px; box-shadow: 0 4px 15px rgba(66, 153, 225, 0.4); }}
-            .stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }}
-            .stat-card {{ background: #f7fafc; padding: 20px; border-radius: 10px; text-align: center; border-left: 4px solid #667eea; }}
-            .stat-number {{ font-size: 32px; font-weight: bold; color: #2d3748; }}
-            .stat-label {{ color: #718096; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }}
-            .commit-box {{ background: #2d3748; color: white; padding: 25px; border-radius: 10px; margin: 30px 0; }}
-            .commit-message {{ font-size: 20px; margin: 10px 0; }}
-            .commit-sha {{ background: #4a5568; padding: 5px 15px; border-radius: 20px; font-size: 14px; display: inline-block; }}
-            .deployment-name {{ background: #48bb78; color: white; padding: 8px 20px; border-radius: 20px; display: inline-block; font-size: 16px; margin-top: 10px; }}
-            .tasks {{ background: #f7fafc; padding: 20px; border-radius: 10px; margin: 30px 0; }}
-            .task-item {{ padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; }}
-            .history {{ background: #ebf8ff; padding: 20px; border-radius: 10px; margin-top: 30px; border: 2px solid #bee3f8; }}
-            .history-item {{ padding: 8px; border-bottom: 1px solid #bee3f8; }}
-            .live-indicator {{ display: inline-block; width: 12px; height: 12px; background: #48bb78; border-radius: 50%; margin-right: 10px; animation: pulse 2s infinite; }}
-            @keyframes pulse {{
-                0% {{ opacity: 1; }}
-                50% {{ opacity: 0.5; }}
-                100% {{ opacity: 1; }}
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
             }}
-            .footer {{ margin-top: 40px; text-align: center; color: #718096; font-size: 14px; }}
+            
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 20px;
+            }}
+            
+            .container {{
+                max-width: 1000px;
+                width: 100%;
+                background: white;
+                border-radius: 20px;
+                padding: 40px;
+                box-shadow: 0 30px 80px rgba(0,0,0,0.35);
+                animation: slideUp 0.6s ease-out;
+            }}
+            
+            @keyframes slideUp {{
+                from {{
+                    opacity: 0;
+                    transform: translateY(40px);
+                }}
+                to {{
+                    opacity: 1;
+                    transform: translateY(0);
+                }}
+            }}
+            
+            .header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 3px solid #667eea;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+                flex-wrap: wrap;
+                gap: 15px;
+            }}
+            
+            .header h1 {{
+                font-size: 28px;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }}
+            
+            .live-indicator {{
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                background: #f0fff4;
+                padding: 8px 18px;
+                border-radius: 50px;
+                border: 2px solid #48bb78;
+            }}
+            
+            .live-dot {{
+                width: 12px;
+                height: 12px;
+                background: #48bb78;
+                border-radius: 50%;
+                animation: pulse 1.5s infinite;
+            }}
+            
+            @keyframes pulse {{
+                0% {{ opacity: 1; transform: scale(1); }}
+                50% {{ opacity: 0.5; transform: scale(0.8); }}
+                100% {{ opacity: 1; transform: scale(1); }}
+            }}
+            
+            .badge-container {{
+                display: flex;
+                gap: 15px;
+                flex-wrap: wrap;
+                margin: 20px 0 30px 0;
+            }}
+            
+            .badge {{
+                padding: 12px 25px;
+                border-radius: 50px;
+                font-weight: 700;
+                font-size: 16px;
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            }}
+            
+            .badge-deploy {{
+                background: linear-gradient(135deg, #48bb78, #38a169);
+                color: white;
+            }}
+            
+            .badge-commit {{
+                background: linear-gradient(135deg, #4299e1, #3182ce);
+                color: white;
+            }}
+            
+            .badge-number {{
+                background: linear-gradient(135deg, #ed8936, #dd6b20);
+                color: white;
+            }}
+            
+            .stats-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 20px;
+                margin: 30px 0;
+            }}
+            
+            .stat-card {{
+                background: #f7fafc;
+                padding: 20px;
+                border-radius: 12px;
+                text-align: center;
+                border-left: 5px solid #667eea;
+                transition: transform 0.2s;
+            }}
+            
+            .stat-card:hover {{
+                transform: translateY(-3px);
+            }}
+            
+            .stat-number {{
+                font-size: 36px;
+                font-weight: 800;
+                color: #2d3748;
+            }}
+            
+            .stat-label {{
+                color: #718096;
+                font-size: 13px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-top: 5px;
+            }}
+            
+            .commit-box {{
+                background: linear-gradient(135deg, #2d3748, #1a202c);
+                color: white;
+                padding: 25px;
+                border-radius: 15px;
+                margin: 30px 0;
+            }}
+            
+            .commit-sha {{
+                background: #4a5568;
+                padding: 5px 15px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-family: monospace;
+                display: inline-block;
+            }}
+            
+            .commit-message {{
+                font-size: 22px;
+                margin: 15px 0;
+                font-weight: 600;
+            }}
+            
+            .commit-message-small {{
+                color: #a0aec0;
+                font-size: 14px;
+                font-weight: normal;
+            }}
+            
+            .deployment-name-display {{
+                background: #48bb78;
+                color: white;
+                padding: 8px 20px;
+                border-radius: 20px;
+                display: inline-block;
+                font-size: 16px;
+                font-weight: 600;
+                margin-top: 10px;
+            }}
+            
+            .tasks-section {{
+                background: #f7fafc;
+                padding: 25px;
+                border-radius: 15px;
+                margin: 30px 0;
+            }}
+            
+            .tasks-section h2 {{
+                margin-bottom: 15px;
+                color: #2d3748;
+            }}
+            
+            .task-item {{
+                padding: 12px 15px;
+                border-bottom: 1px solid #e2e8f0;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                font-size: 16px;
+            }}
+            
+            .task-item:last-child {{
+                border-bottom: none;
+            }}
+            
+            .task-status {{
+                font-size: 20px;
+            }}
+            
+            .history-section {{
+                background: #ebf8ff;
+                padding: 25px;
+                border-radius: 15px;
+                margin: 30px 0;
+                border: 2px solid #bee3f8;
+            }}
+            
+            .history-section h2 {{
+                color: #2b6cb0;
+                margin-bottom: 15px;
+            }}
+            
+            .history-item {{
+                padding: 10px 15px;
+                border-bottom: 1px solid #bee3f8;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 10px;
+            }}
+            
+            .history-item:last-child {{
+                border-bottom: none;
+            }}
+            
+            .history-number {{
+                background: #4299e1;
+                color: white;
+                padding: 3px 12px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 600;
+            }}
+            
+            .history-time {{
+                color: #718096;
+                font-size: 13px;
+            }}
+            
+            .footer {{
+                text-align: center;
+                color: #718096;
+                font-size: 14px;
+                padding-top: 20px;
+                border-top: 2px solid #e2e8f0;
+                margin-top: 30px;
+            }}
+            
+            .footer strong {{
+                color: #2d3748;
+            }}
+            
+            @media (max-width: 600px) {{
+                .container {{
+                    padding: 20px;
+                }}
+                .header h1 {{
+                    font-size: 22px;
+                }}
+                .badge {{
+                    font-size: 13px;
+                    padding: 8px 16px;
+                }}
+                .commit-message {{
+                    font-size: 18px;
+                }}
+                .stats-grid {{
+                    grid-template-columns: 1fr 1fr;
+                }}
+            }}
         </style>
     </head>
     <body>
         <div class="container">
+            <!-- HEADER -->
             <div class="header">
-                <h1>🚀 CI/CD Pipeline Demo</h1>
-                <span class="live-indicator"></span> Live
+                <h1>🚀 CI/CD Pipeline Dashboard</h1>
+                <div class="live-indicator">
+                    <span class="live-dot"></span>
+                    <span style="font-weight: 600; color: #2d3748;">LIVE</span>
+                </div>
             </div>
             
-            <div class="badge-group">
-                <div class="deploy-badge">
+            <!-- BADGES -->
+            <div class="badge-container">
+                <div class="badge badge-deploy">
                     🎯 {deployment_name}
                 </div>
-                <div class="commit-badge">
+                <div class="badge badge-commit">
                     📝 Commit #{commit_count}
+                </div>
+                <div class="badge badge-number">
+                    🔄 Deploy #{actual_deploy_num}
                 </div>
             </div>
             
-            <div class="stats">
+            <!-- STATS -->
+            <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-number">{deploy_count}</div>
+                    <div class="stat-number">{actual_deploy_num}</div>
                     <div class="stat-label">Total Deployments</div>
                 </div>
                 <div class="stat-card">
@@ -124,50 +395,91 @@ def home():
                     <div class="stat-number">{len(tasks)}</div>
                     <div class="stat-label">Total Tasks</div>
                 </div>
-            </div>
-            
-            <div class="commit-box">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span class="commit-sha">🔑 {commit_sha}</span>
-                    <span style="color: #a0aec0;">{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</span>
+                <div class="stat-card">
+                    <div class="stat-number">{datetime.datetime.now().strftime('%H:%M')}</div>
+                    <div class="stat-label">Last Updated</div>
                 </div>
-                <div class="commit-message">📝 {commit_message}</div>
-                <div class="deployment-name">🏷️ {deployment_name}</div>
             </div>
             
-            <div class="tasks">
-                <h2>📋 Tasks</h2>
+            <!-- COMMIT INFO -->
+            <div class="commit-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <span class="commit-sha">🔑 {commit_sha}</span>
+                    <span style="color: #a0aec0; font-size: 14px;">{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</span>
+                </div>
+                <div class="commit-message">
+                    📝 {commit_message}
+                    <div class="commit-message-small">(commit message)</div>
+                </div>
+                <div class="deployment-name-display">
+                    🏷️ {deployment_name}
+                </div>
+            </div>
+            
+            <!-- TASKS -->
+            <div class="tasks-section">
+                <h2>📋 Current Tasks</h2>
     """
     
     for task in tasks:
         status = "✅" if task["completed"] else "⬜"
-        html += f"<div class='task-item'>{status} {task['title']}</div>"
+        html += f"""
+                <div class="task-item">
+                    <span class="task-status">{status}</span>
+                    <span>{task['title']}</span>
+                </div>
+        """
     
     html += f"""
             </div>
             
-            <div class="history">
-                <h2>🔄 Deployment History (Last 5)</h2>
+            <!-- HISTORY -->
+            <div class="history-section">
+                <h2>🔄 Deployment History</h2>
     """
     
     # Get history from file if exists
     try:
         with open('/tmp/deploy_history.txt', 'r') as f:
             history_lines = f.readlines()[-5:]
-            for line in history_lines:
-                html += f"<div class='history-item'>{line.strip()}</div>"
+            if history_lines:
+                for line in history_lines:
+                    parts = line.strip().split(' - ')
+                    if len(parts) >= 2:
+                        html += f"""
+                        <div class="history-item">
+                            <span><span class="history-number">{parts[0]}</span> {parts[1]}</span>
+                            <span class="history-time">{parts[2] if len(parts) > 2 else ''}</span>
+                        </div>
+                        """
+            else:
+                html += '<div class="history-item">No deployments yet</div>'
     except:
         # Use in-memory history
-        for deploy in deployment_history[-5:]:
-            html += f"<div class='history-item'>Deployment #{deploy['number']} - {deploy['time']} - {deploy['commit']}</div>"
+        if deployment_history:
+            for deploy in deployment_history[-5:]:
+                html += f"""
+                <div class="history-item">
+                    <span><span class="history-number">#{deploy['number']}</span> {deploy['name']}</span>
+                    <span class="history-time">{deploy['time'][:16]}</span>
+                </div>
+                """
+        else:
+            html += '<div class="history-item">No deployments yet</div>'
     
     html += f"""
             </div>
             
+            <!-- FOOTER -->
             <div class="footer">
-                <p>✨ <strong>Deployment Name:</strong> {deployment_name}</p>
-                <p>🔄 This page updates on every GitHub Actions deployment</p>
-                <p>⚡ <strong>Tip:</strong> Use commit message format "deploy: My Special Name" for custom names</p>
+                <p>
+                    <strong>💡 Tip:</strong> Use commit message format 
+                    <code style="background: #edf2f7; padding: 2px 8px; border-radius: 4px;">deploy: Your Special Name</code>
+                    to give each deployment a custom name!
+                </p>
+                <p style="margin-top: 10px; font-size: 12px;">
+                    🔄 This page updates automatically on every GitHub Actions deployment
+                </p>
             </div>
         </div>
     </body>
@@ -207,16 +519,13 @@ def record_deployment():
     """Record a deployment with custom name"""
     commit_count, commit_message, commit_sha = get_commit_info()
     
-    # Get deployment name from environment or commit message
-    deploy_name = os.environ.get('DEPLOYMENT_NAME', '')
-    if not deploy_name:
-        # Extract custom name from commit message (format: "deploy: myname")
-        if "deploy:" in commit_message.lower():
-            deploy_name = commit_message.split("deploy:")[1].strip().split("\n")[0]
-        else:
-            deploy_name = f"Deployment #{get_deployment_count()}"
+    # Get deployment name from commit message
+    if "deploy:" in commit_message.lower():
+        deploy_name = commit_message.split("deploy:")[1].strip().split("\n")[0]
+    else:
+        deploy_name = f"Deployment #{get_deployment_count()}"
     
-    # Increment deployment count
+    # Get current count
     current_count = get_deployment_count()
     
     deployment_record = {
@@ -231,7 +540,7 @@ def record_deployment():
     
     # Save to file for persistence
     with open('/tmp/deploy_history.txt', 'a') as f:
-        f.write(f"#{current_count} - {deploy_name} - {commit_message[:30]} - {datetime.datetime.now().strftime('%H:%M')}\n")
+        f.write(f"#{current_count} - {deploy_name} - {datetime.datetime.now().strftime('%H:%M')}\n")
     
     # Increment for next time
     increment_deployment_count()
@@ -242,4 +551,5 @@ def record_deployment():
     })
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)
+# New feature
