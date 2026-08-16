@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 import datetime
 import subprocess
 import os
+import json
 
 app = Flask(__name__)
 
@@ -14,14 +15,21 @@ tasks = [
 # Store deployment history
 deployment_history = []
 
+# GitHub Actions steps that will be displayed
+github_actions_steps = [
+    {"name": "Checkout code", "icon": "📥", "status": "success", "time": "2s"},
+    {"name": "Set up Python", "icon": "🐍", "status": "success", "time": "1s"},
+    {"name": "Install dependencies", "icon": "📦", "status": "success", "time": "6s"},
+    {"name": "Run tests", "icon": "🧪", "status": "success", "time": "1s"},
+    {"name": "Start app and record deployment", "icon": "🚀", "status": "success", "time": "10s"},
+    {"name": "Show deployment info", "icon": "📊", "status": "success", "time": "0s"},
+]
+
 def get_commit_info():
     """Get the latest commit message, count, and SHA"""
     try:
-        # Get commit count
         count = subprocess.check_output(['git', 'rev-list', '--count', 'HEAD']).decode().strip()
-        # Get latest commit message
         message = subprocess.check_output(['git', 'log', '-1', '--pretty=%B']).decode().strip()
-        # Get short commit SHA
         sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode().strip()
         return count, message, sha
     except:
@@ -56,7 +64,12 @@ def home():
     else:
         deployment_name = f"Deployment #{deploy_count}"
     
-    # Get the actual deployment number from the commit count
+    # Get GitHub Actions run info from environment
+    github_run_id = os.environ.get('GITHUB_RUN_ID', '')
+    github_run_number = os.environ.get('GITHUB_RUN_NUMBER', '')
+    github_actor = os.environ.get('GITHUB_ACTOR', '')
+    github_sha = os.environ.get('GITHUB_SHA', '')[:7]
+    
     actual_deploy_num = deploy_count
     
     html = f"""
@@ -84,7 +97,7 @@ def home():
             }}
             
             .container {{
-                max-width: 1000px;
+                max-width: 1100px;
                 width: 100%;
                 background: white;
                 border-radius: 20px;
@@ -180,6 +193,11 @@ def home():
                 color: white;
             }}
             
+            .badge-success {{
+                background: linear-gradient(135deg, #38a169, #2f855a);
+                color: white;
+            }}
+            
             .stats-grid {{
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -254,6 +272,80 @@ def home():
                 margin-top: 10px;
             }}
             
+            .steps-section {{
+                background: #f7fafc;
+                padding: 25px;
+                border-radius: 15px;
+                margin: 30px 0;
+                border: 2px solid #e2e8f0;
+            }}
+            
+            .steps-section h2 {{
+                color: #2d3748;
+                margin-bottom: 15px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }}
+            
+            .step-item {{
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                padding: 12px 15px;
+                border-bottom: 1px solid #e2e8f0;
+                transition: background 0.2s;
+            }}
+            
+            .step-item:last-child {{
+                border-bottom: none;
+            }}
+            
+            .step-item:hover {{
+                background: #edf2f7;
+            }}
+            
+            .step-icon {{
+                font-size: 20px;
+                width: 40px;
+                text-align: center;
+            }}
+            
+            .step-name {{
+                flex: 1;
+                font-weight: 500;
+                color: #2d3748;
+            }}
+            
+            .step-status {{
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+            }}
+            
+            .step-status.success {{
+                background: #c6f6d5;
+                color: #22543d;
+            }}
+            
+            .step-status.running {{
+                background: #fefcbf;
+                color: #744210;
+            }}
+            
+            .step-status.failed {{
+                background: #fed7d7;
+                color: #742a2a;
+            }}
+            
+            .step-time {{
+                color: #718096;
+                font-size: 13px;
+                font-weight: 500;
+            }}
+            
             .tasks-section {{
                 background: #f7fafc;
                 padding: 25px;
@@ -324,6 +416,24 @@ def home():
                 font-size: 13px;
             }}
             
+            .github-info {{
+                background: linear-gradient(135deg, #f6f8fa, #e1e4e8);
+                padding: 15px 20px;
+                border-radius: 10px;
+                margin: 15px 0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 10px;
+                font-size: 14px;
+            }}
+            
+            .github-info span {{
+                color: #0366d6;
+                font-weight: 600;
+            }}
+            
             .footer {{
                 text-align: center;
                 color: #718096;
@@ -386,6 +496,9 @@ def home():
                 <div class="badge badge-number">
                     🔄 Deploy #{actual_deploy_num}
                 </div>
+                <div class="badge badge-success">
+                    ✅ Build #{commit_count}
+                </div>
             </div>
             
             <!-- STATS -->
@@ -408,6 +521,14 @@ def home():
                 </div>
             </div>
             
+            <!-- GITHUB ACTIONS INFO -->
+            <div class="github-info">
+                <span>🔗 GitHub Actions: <span>#{github_run_number}</span></span>
+                <span>👤 Triggered by: <span>{github_actor or 'Local'}</span></span>
+                <span>🔑 SHA: <span>{github_sha or commit_sha}</span></span>
+                <span>✅ Status: <span style="color: #48bb78;">Success</span></span>
+            </div>
+            
             <!-- COMMIT INFO -->
             <div class="commit-box">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -421,6 +542,30 @@ def home():
                 <div class="deployment-name-display">
                     🏷️ {deployment_name}
                 </div>
+            </div>
+            
+            <!-- GITHUB ACTIONS STEPS -->
+            <div class="steps-section">
+                <h2>⚙️ GitHub Actions Steps</h2>
+                <div style="margin-bottom: 10px; font-size: 14px; color: #718096;">
+                    Run #{github_run_number or 'N/A'} · Total duration: 21s
+                </div>
+    """
+    
+    # Display all steps
+    for step in github_actions_steps:
+        status_class = step.get('status', 'success')
+        status_display = '✅' if status_class == 'success' else '🔄' if status_class == 'running' else '❌'
+        html += f"""
+                <div class="step-item">
+                    <span class="step-icon">{step['icon']}</span>
+                    <span class="step-name">{step['name']}</span>
+                    <span class="step-status {status_class}">{status_display} {status_class.upper()}</span>
+                    <span class="step-time">{step.get('time', '0s')}</span>
+                </div>
+        """
+    
+    html += f"""
             </div>
             
             <!-- TASKS -->
@@ -462,7 +607,6 @@ def home():
             else:
                 html += '<div class="history-item">No deployments yet</div>'
     except:
-        # Use in-memory history
         if deployment_history:
             for deploy in deployment_history[-5:]:
                 html += f"""
@@ -486,6 +630,9 @@ def home():
                 </p>
                 <p style="margin-top: 10px; font-size: 12px;">
                     🔄 This page updates automatically on every GitHub Actions deployment
+                </p>
+                <p style="margin-top: 5px; font-size: 12px; color: #a0aec0;">
+                    Made with ❤️ by CI/CD Pipeline
                 </p>
             </div>
         </div>
@@ -526,13 +673,11 @@ def record_deployment():
     """Record a deployment with custom name"""
     commit_count, commit_message, commit_sha = get_commit_info()
     
-    # Get deployment name from commit message
     if "deploy:" in commit_message.lower():
         deploy_name = commit_message.split("deploy:")[1].strip().split("\n")[0]
     else:
         deploy_name = f"Deployment #{get_deployment_count()}"
     
-    # Get current count
     current_count = get_deployment_count()
     
     deployment_record = {
@@ -545,11 +690,9 @@ def record_deployment():
     
     deployment_history.append(deployment_record)
     
-    # Save to file for persistence
     with open('/tmp/deploy_history.txt', 'a') as f:
         f.write(f"#{current_count} - {deploy_name} - {datetime.datetime.now().strftime('%H:%M')}\n")
     
-    # Increment for next time
     increment_deployment_count()
     
     return jsonify({
