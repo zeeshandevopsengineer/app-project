@@ -1,35 +1,9 @@
-name: Deploy Application with Custom Names
+name: Deploy Application
 
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
-    inputs:
-      deployment_engineer:
-        description: '👨‍💻 Deployment Engineer Name'
-        required: true
-        default: 'Zeeshan DevOps Engineer'
-        type: string
-      deployment_name:
-        description: '🎯 Deployment Name'
-        required: true
-        default: 'My Feature'
-        type: string
-      commit_message:
-        description: '📝 Commit Message'
-        required: true
-        default: 'deploy: My Feature'
-        type: string
-      important_notice:
-        description: '📢 Important Notice'
-        required: false
-        default: 'Use commit message format deploy: Your Special Name'
-        type: string
-      message_of_the_day:
-        description: '💡 Message of the Day'
-        required: false
-        default: 'Keep coding and deploying! 🚀'
-        type: string
 
 jobs:
   test-and-deploy:
@@ -57,36 +31,11 @@ jobs:
         pytest test_app.py -v
     
     - name: Start app and record deployment
-      env:
-        DEPLOYMENT_ENGINEER: ${{ github.event.inputs.deployment_engineer || 'Zeeshan DevOps Engineer' }}
-        DEPLOYMENT_NAME: ${{ github.event.inputs.deployment_name || 'Auto Deployment' }}
-        COMMIT_MESSAGE: ${{ github.event.inputs.commit_message || github.event.head_commit.message }}
-        IMPORTANT_NOTICE: ${{ github.event.inputs.important_notice || 'Use commit message format deploy: Your Special Name' }}
-        MESSAGE_OF_THE_DAY: ${{ github.event.inputs.message_of_the_day || 'Keep coding and deploying! 🚀' }}
-        GITHUB_RUN_NUMBER: ${{ github.run_number }}
-        GITHUB_ACTOR: ${{ github.actor }}
-        GITHUB_SHA: ${{ github.sha }}
       run: |
         python app.py --port=5001 &
-        sleep 5
-        curl -X POST http://localhost:5001/deploy \
-          -H "Content-Type: application/json" \
-          -d "{
-            \"deployment_engineer\": \"$DEPLOYMENT_ENGINEER\",
-            \"deployment_name\": \"$DEPLOYMENT_NAME\",
-            \"commit_message\": \"$COMMIT_MESSAGE\",
-            \"important_notice\": \"$IMPORTANT_NOTICE\",
-            \"message_of_the_day\": \"$MESSAGE_OF_THE_DAY\",
-            \"github_run_number\": \"$GITHUB_RUN_NUMBER\",
-            \"github_actor\": \"$GITHUB_ACTOR\",
-            \"github_sha\": \"$GITHUB_SHA\"
-          }"
+        sleep 3
+        curl -X POST http://localhost:5001/deploy -H "Content-Type: application/json" -d '{"deployment_name":"GitHub Actions Deploy"}'
     
-    - name: Show deployment info
+    - name: Show success
       run: |
         echo "✅ Deployment successful!"
-        echo "📝 Deployment Engineer: ${{ github.event.inputs.deployment_engineer || 'Zeeshan DevOps Engineer' }}"
-        echo "🎯 Deployment Name: ${{ github.event.inputs.deployment_name || 'Auto Deployment' }}"
-        echo "📝 Commit: ${{ github.event.inputs.commit_message || github.event.head_commit.message }}"
-        echo "📢 Notice: ${{ github.event.inputs.important_notice || 'Default notice' }}"
-        echo "💡 MOTD: ${{ github.event.inputs.message_of_the_day || 'Keep coding!' }}"
