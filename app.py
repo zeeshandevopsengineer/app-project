@@ -337,6 +337,13 @@ def home():
                 color: #2d3748;
             }}
             
+            .footer code {{
+                background: #edf2f7;
+                padding: 2px 8px;
+                border-radius: 4px;
+                font-family: monospace;
+            }}
+            
             @media (max-width: 600px) {{
                 .container {{
                     padding: 20px;
@@ -474,7 +481,7 @@ def home():
             <div class="footer">
                 <p>
                     <strong>💡 Tip:</strong> Use commit message format 
-                    <code style="background: #edf2f7; padding: 2px 8px; border-radius: 4px;">deploy: Your Special Name</code>
+                    <code>deploy: Your Special Name</code>
                     to give each deployment a custom name!
                 </p>
                 <p style="margin-top: 10px; font-size: 12px;">
@@ -550,6 +557,14 @@ def record_deployment():
         "deployment": deployment_record
     })
 
+@app.route('/reset', methods=['POST'])
+def reset_deployments():
+    """Reset deployment counter (for testing)"""
+    with open('/tmp/deploy_count.txt', 'w') as f:
+        f.write('1')
+    with open('/tmp/deploy_history.txt', 'w') as f:
+        f.write('')
+    return jsonify({"status": "reset successful"})
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
-# New feature
