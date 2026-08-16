@@ -3,8 +3,6 @@ name: Deploy Application with Custom Names
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
 
 jobs:
   test-and-deploy:
@@ -32,34 +30,22 @@ jobs:
         pytest test_app.py -v
     
     - name: Start app and record deployment
-      env:
-        DEPLOYMENT_NAME: ${{ github.event.head_commit.message }}
       run: |
-        python app.py &
+        # Start the app on port 5001
+        python app.py --port=5001 &
         sleep 5
-        curl -X POST http://localhost:5000/deploy
-        DEPLOY_NAME=$(echo "${{ github.event.head_commit.message }}" | grep -o 'deploy:.*' | sed 's/deploy://' | xargs || echo "Auto-deployment")
-        echo "DEPLOY_NAME=$DEPLOY_NAME" >> $GITHUB_ENV
-    
-    - name: Create deployment badge
-      run: |
-        echo "## 🚀 DEPLOYMENT BADGE" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| **Detail** | **Value** |" >> $GITHUB_STEP_SUMMARY
-        echo "|------------|-----------|" >> $GITHUB_STEP_SUMMARY
-        echo "| **Deployment Name** | ${{ env.DEPLOY_NAME }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Commit Message** | ${{ github.event.head_commit.message }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Commit SHA** | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Deployment #** | $(curl -s http://localhost:5000 | grep -o 'Deployment #[0-9]*' | head -1 | sed 's/Deployment #//') |" >> $GITHUB_STEP_SUMMARY
-        echo "| **Time** | $(date) |" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### ✅ Deployment Successful!" >> $GITHUB_STEP_SUMMARY
-        echo "🌐 App is running at http://localhost:5000" >> $GITHUB_STEP_SUMMARY
+        # Record deployment on port 5001
+        curl -X POST http://localhost:5001/deploy
+        # Get deployment info
+        curl -s http://localhost:5001 | grep -o "Deploy #[0-9]*" | head -1
     
     - name: Show deployment info
       run: |
         echo "✅ Deployment successful!"
         echo "📝 Commit: ${{ github.event.head_commit.message }}"
         echo "🔄 Commit count: $(git rev-list --count HEAD)"
-        echo "🌐 App running at http://localhost:5000"
-        echo "🏷️ Deployment name: $(curl -s http://localhost:5000 | grep -o 'Deployment #[0-9]*' | head -1)"
+        echo ""
+        echo "📊 DEPLOYMENT SUMMARY:"
+        echo "   Name: $(git log -1 --pretty=%B | grep -o 'deploy:.*' | sed 's/deploy://' | xargs || echo 'Auto')"
+        echo "   Commit: $(git log -1 --pretty=%B)"
+        echo "   Deploy #: $(curl -s http://localhost:5001 | grep -o 'Deploy #[0-9]*' | head -1 | sed 's/Deploy #//' || echo '1')"
